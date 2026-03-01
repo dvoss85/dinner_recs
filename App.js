@@ -3,9 +3,9 @@ import React, { useState } from "react";
 // ==========================================
 // 1. CONSTANTS FOR CACHING
 // ==========================================
-// Bumped to v6 since we changed the available food types!
-const CACHE_KEY = "restaurant_cache_v6";
-const TIME_KEY = "restaurant_cache_time_v6";
+// Bumped to v8 to ensure we aren't using old direct-API cache formats
+const CACHE_KEY = "restaurant_cache_v8";
+const TIME_KEY = "restaurant_cache_time_v8";
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 // ==========================================
@@ -100,7 +100,6 @@ const RestaurantFilterForm = ({ onSearch, isLoading }) => {
           disabled={isLoading}
         >
           <option value="Any">Any Cuisine</option>
-          {/* THE COMPLETE GOOGLE PLACES CUISINE LIST */}
           <option value="American">American</option>
           <option value="Bakery">Bakery</option>
           <option value="Bar">Bar / Pub</option>
@@ -242,38 +241,30 @@ export default function App() {
       cachedTime &&
       now - parseInt(cachedTime, 10) < CACHE_DURATION
     ) {
-      console.log(`Loading cached data for ${foodType} near ${zipCode}...`);
       const parsedData = JSON.parse(cachedData);
-
       setCurrentResults(parsedData);
       setRecommendations(parsedData.slice(0, 3));
       setQueue(parsedData.slice(3));
-
       setHasSearched(true);
       setIsLoading(false);
       return;
     }
 
-    console.log(`Fetching fresh data from Google...`);
     try {
-      const apiUrl = "https://places.googleapis.com/v1/places:searchText";
-      const searchQuery =
-        foodType === "Any"
-          ? `restaurants within ${distance} miles of ${zipCode}`
-          : `${foodType} restaurants within ${distance} miles of ${zipCode}`;
+      // 1. UPDATE THIS URL to your Google Cloud Function Trigger URL
+      const apiUrl =
+        "https://get-recommendations-781263329613.us-central1.run.app";
 
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Goog-Api-Key": "your_api_key", // Make sure to re-add your key here!
-          "X-Goog-FieldMask":
-            "places.id,places.displayName,places.primaryType,places.priceLevel,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri",
         },
         body: JSON.stringify({
-          textQuery: searchQuery,
-          minRating: 4.0,
-          openNow: isOpenNow,
+          foodType,
+          zipCode,
+          distance,
+          isOpenNow,
         }),
       });
 
@@ -319,7 +310,6 @@ export default function App() {
       setCurrentResults(formattedRestaurants);
       setRecommendations(formattedRestaurants.slice(0, 3));
       setQueue(formattedRestaurants.slice(3));
-
       setHasSearched(true);
     } catch (error) {
       console.error("Failed to fetch restaurants:", error);
